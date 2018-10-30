@@ -4,7 +4,7 @@
 **********************************************************/
 
 
-
+/*
 -------------------------------------------------------------------------------------------
 -- create ENCOUNTER_MAPPING table with clustered PK on ENCOUNTER_IDE, ENCOUNTER_IDE_SOURCE 
 -------------------------------------------------------------------------------------------
@@ -59,7 +59,7 @@ CREATE INDEX PM_PATNUM_IDX ON PATIENT_MAPPING(PATIENT_NUM)
 ;
 CREATE INDEX PM_ENCPNUM_IDX ON 
 PATIENT_MAPPING(PATIENT_IDE,PATIENT_IDE_SOURCE,PATIENT_NUM) ;
-
+*/
 
 ------------------------------------------------------------------------------
 -- create CODE_LOOKUP table with clustered PK on TABLE_CD, COLUMN_CD, CODE_CD 
@@ -89,145 +89,136 @@ CREATE INDEX CL_IDX_UPLOADID ON CODE_LOOKUP(UPLOAD_ID)
 
 
 --------------------------------------------------------------------
--- create CONCEPT_DIMENSION table with clustered PK on CONCEPT_PATH 
+-- create DimConcept table with clustered PK on ConceptPath 
 --------------------------------------------------------------------
 
-CREATE TABLE CONCEPT_DIMENSION ( 
-	CONCEPT_PATH   		VARCHAR(700) NOT NULL,
-	CONCEPT_CD     		VARCHAR(50) NULL,
-	NAME_CHAR      		VARCHAR(2000) NULL,
-	CONCEPT_BLOB   		VARCHAR(MAX) NULL,
-	UPDATE_DATE    		DATETIME NULL,
-	DOWNLOAD_DATE  		DATETIME NULL,
-	IMPORT_DATE    		DATETIME NULL,
-	SOURCESYSTEM_CD		VARCHAR(50) NULL,
-    UPLOAD_ID			INT NULL,
-    CONSTRAINT CONCEPT_DIMENSION_PK PRIMARY KEY(CONCEPT_PATH)
-	)
-;
-CREATE INDEX CD_IDX_UPLOADID ON CONCEPT_DIMENSION(UPLOAD_ID)
-;
-
-
----------------------------------------------------------------------------------------------------------------------------------------
--- create OBSERVATION_FACT table with NONclustered PK on ENCOUNTER_NUM, CONCEPT_CD, PROVIDER_ID, START_DATE, MODIFIER_CD, INSTANCE_NUM 
----------------------------------------------------------------------------------------------------------------------------------------
-
-CREATE TABLE OBSERVATION_FACT ( 
-	ENCOUNTER_NUM  		INT NOT NULL,
-	PATIENT_NUM    		INT NOT NULL,
-	CONCEPT_CD     		VARCHAR(50) NOT NULL,
-	PROVIDER_ID    		VARCHAR(50) NOT NULL,
-	START_DATE     		DATETIME NOT NULL,
-	MODIFIER_CD    		VARCHAR(100) default '@' NOT NULL,
-	INSTANCE_NUM		INT default (1) NOT NULL,
-	VALTYPE_CD     		VARCHAR(50) NULL,
-	TVAL_CHAR      		VARCHAR(255) NULL,
-	NVAL_NUM       		DECIMAL(18,5) NULL,
-	VALUEFLAG_CD   		VARCHAR(50) NULL,
-	QUANTITY_NUM   		DECIMAL(18,5) NULL,
-	UNITS_CD       		VARCHAR(50) NULL,
-	END_DATE       		DATETIME NULL,
-	LOCATION_CD    		VARCHAR(50) NULL,
-	OBSERVATION_BLOB	VARCHAR(MAX) NULL,
-	CONFIDENCE_NUM 		DECIMAL(18,5) NULL,
-	UPDATE_DATE    		DATETIME NULL,
-	DOWNLOAD_DATE  		DATETIME NULL,
-	IMPORT_DATE    		DATETIME NULL,
-	SOURCESYSTEM_CD		VARCHAR(50) NULL, 
-    UPLOAD_ID         	INT NULL,
-    TEXT_SEARCH_INDEX   INT IDENTITY(1,1),
-    CONSTRAINT OBSERVATION_FACT_PK PRIMARY KEY nonclustered (PATIENT_NUM, CONCEPT_CD,  MODIFIER_CD, START_DATE, ENCOUNTER_NUM, INSTANCE_NUM, PROVIDER_ID)
+CREATE TABLE DimConcept ( 
+	ConceptKey			INT NOT NULL,
+	ConceptPath   		VARCHAR(700) NOT NULL,
+	ConceptCode    		VARCHAR(50) NULL,
+	Name				VARCHAR(2000) NULL,
+	SourceSystemId   	VARCHAR(50) NULL,
+	CreateDate    		DATETIME NULL,
+	ModifyDate  		DATETIME NULL
+    CONSTRAINT CONCEPT_DIMENSION_PK PRIMARY KEY(ConceptPath)
 	)
 ;
 
-/* add index on concept_cd */
-CREATE CLUSTERED INDEX OF_IDX_ClusteredConcept ON OBSERVATION_FACT
+
+
+---------------------------------------------------------------------------------------------------------------------------------------
+-- create FactObervation table with NONclustered PK on PatientKey, ConceptKey,  ModifierKey, DateKey, EventKey, InstanceKey, ProviderKey,ItemInstanceNumber 
+---------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE TABLE FactObservation ( 
+	
+	PatientKey    		INT NOT NULL,
+	ContextKey     		INT NOT NULL,
+	EventKey 			INT NOT NULL,
+	ProviderKey    		INT NOT NULL,
+	ModifierKey    		INT default -1 NOT NULL,
+	ConceptKey 			INT NOT NULL,
+	StartDateKey     	INT NOT NULL,
+	ItemInstanceNumber	INT default (1) NOT NULL,
+	ValueTypeCode     	VARCHAR(50) NULL,
+	TextValue      		VARCHAR(255) NULL,
+	NumberValue    		DECIMAL(18,5) NULL,
+	ValueFlag   		VARCHAR(50) NULL,
+	Quantity   			DECIMAL(18,5) NULL,
+	Units       		VARCHAR(50) NULL,
+	EndDate       		DATETIME NULL,
+	ObservationBlob		VARCHAR(MAX) NULL,
+	ConfidenceLevel		VARCHAR(10) NULL,
+	SourceSystemId		VARCHAR(50) NULL, 
+	CreateDate  		DATETIME NULL,
+	ModifyDate   		DATETIME NULL
+    CONSTRAINT FactObservation_PK PRIMARY KEY nonclustered (PatientKey, ConceptKey,  ModifierKey, StartDateKey, EventKey, ContextKey, ProviderKey,ItemInstanceNumber)
+	)
+;
+
+/* add index on ConceptKey */
+CREATE CLUSTERED INDEX OF_IDX_ClusteredConcept ON FactObservation
 (
-	CONCEPT_CD 
+	ConceptKey 
 )
 ;
 
-/* add an index on most of the observation_fact fields */
-CREATE INDEX OF_IDX_ALLObservation_Fact ON OBSERVATION_FACT
+/* add an index on most of the FactObservation fields */
+CREATE INDEX OF_IDX_ALLFactObservation ON FactObservation
 (
-	PATIENT_NUM ,
-	ENCOUNTER_NUM ,
-	CONCEPT_CD ,
-	START_DATE ,
-	PROVIDER_ID ,
-	MODIFIER_CD ,
-	INSTANCE_NUM,
-	VALTYPE_CD ,
-	TVAL_CHAR ,
-	NVAL_NUM ,
-	VALUEFLAG_CD ,
-	QUANTITY_NUM ,
-	UNITS_CD ,
-	END_DATE ,
-	LOCATION_CD ,
-	CONFIDENCE_NUM
+	PatientKey ,
+	EventKey ,
+	ConceptKey ,
+	StartDateKey ,
+	ProviderKey ,
+	ModifierKey ,
+	ContextKey,
+	ItemInstanceNumber,
+	ValueTypeCode ,
+	TextValue ,
+	NumberValue ,
+	ValueFlag ,
+	Quantity ,
+	Units ,
+	EndDate ,
+	ConfidenceLevel
 )
 ;
-/* add additional indexes on observation_fact fields */
-CREATE INDEX OF_IDX_Start_Date ON OBSERVATION_FACT(START_DATE, PATIENT_NUM)
+/* add additional indexes on FactObservation fields */
+CREATE INDEX OF_IDX_Start_Date ON FactObservation(StartDateKey, PatientKey,ContextKey)
 ;
-CREATE INDEX OF_IDX_Modifier ON OBSERVATION_FACT(MODIFIER_CD)
+CREATE INDEX OF_IDX_Modifier ON FactObservation(ModifierKey)
 ;
-CREATE INDEX OF_IDX_Encounter_Patient ON OBSERVATION_FACT(ENCOUNTER_NUM, PATIENT_NUM, INSTANCE_NUM)
+CREATE INDEX OF_IDX_Encounter_Patient ON FactObservation(EventKey, PatientKey,ContextKey, ItemInstanceNumber)
 ;
-CREATE INDEX OF_IDX_UPLOADID ON OBSERVATION_FACT(UPLOAD_ID)
+--CREATE INDEX OF_IDX_UPLOADID ON FactObservation(UPLOAD_ID)
+--;
+CREATE INDEX OF_IDX_SOURCESYSTEM_CD ON FactObservation(SourceSystemId)
 ;
-CREATE INDEX OF_IDX_SOURCESYSTEM_CD ON OBSERVATION_FACT(SOURCESYSTEM_CD)
-;
-CREATE UNIQUE INDEX OF_TEXT_SEARCH_UNIQUE ON OBSERVATION_FACT(TEXT_SEARCH_INDEX)
-;
+--CREATE UNIQUE INDEX OF_TEXT_SEARCH_UNIQUE ON FactObservation(TEXT_SEARCH_INDEX)
+--;
 EXEC SP_FULLTEXT_DATABASE 'ENABLE'
 ;
 CREATE FULLTEXT CATALOG FTCATALOG AS DEFAULT
 ;
-CREATE FULLTEXT INDEX ON OBSERVATION_FACT(OBSERVATION_BLOB)
+CREATE FULLTEXT INDEX ON FactObservation(ObservationBlob)
  KEY INDEX OF_TEXT_SEARCH_UNIQUE 
 ;
 
 
 
 -------------------------------------------------------------------
--- create PATIENT_DIMENSION table with clustered PK on PATIENT_NUM 
+-- create DimPatient table with clustered PK on PatientKey 
 -------------------------------------------------------------------
 
-CREATE TABLE PATIENT_DIMENSION ( 
-	PATIENT_NUM      	INT NOT NULL,
-	VITAL_STATUS_CD  	VARCHAR(50) NULL,
-	BIRTH_DATE       	DATETIME NULL,
-	DEATH_DATE       	DATETIME NULL,
-	SEX_CD           	VARCHAR(50) NULL,
-	AGE_IN_YEARS_NUM	INT NULL,
-	LANGUAGE_CD      	VARCHAR(50) NULL,
-	RACE_CD          	VARCHAR(50) NULL,
-	MARITAL_STATUS_CD	VARCHAR(50) NULL,
-	RELIGION_CD      	VARCHAR(50) NULL,
-	ZIP_CD           	VARCHAR(10) NULL,
-	STATECITYZIP_PATH	VARCHAR(700) NULL,
-	INCOME_CD			VARCHAR(50) NULL,
+CREATE TABLE DimPatient ( 
+	PatientKey      	INT NOT NULL,
+	PatientFK			VARCHAR(50) NULL,
+	BirthDate       	DATETIME NULL,
+	Sex	       			VARCHAR(50) NULL,
+	VitalStatus			VARCHAR(50) NULL,
+	DeathDate       	DATETIME NULL,
+	Zip					VARCHAR(10) NULL,
+	Latitude			DECIMAL(3,6) NULL 
+	Longitude			DECIMAL(3,6)NULL,
 	PATIENT_BLOB     	VARCHAR(MAX) NULL,
 	UPDATE_DATE      	DATETIME NULL,
 	DOWNLOAD_DATE    	DATETIME NULL,
 	IMPORT_DATE      	DATETIME NULL,
 	SOURCESYSTEM_CD  	VARCHAR(50) NULL,
     UPLOAD_ID         	INT NULL, 
-    CONSTRAINT PATIENT_DIMENSION_PK PRIMARY KEY(PATIENT_NUM)
+    CONSTRAINT DimPatient_PK PRIMARY KEY(PATIENT_NUM)
 	)
 ;
 
-/* add indexes on additional PATIENT_DIMENSION fields */
-CREATE  INDEX PD_IDX_DATES ON PATIENT_DIMENSION(PATIENT_NUM, VITAL_STATUS_CD, BIRTH_DATE, DEATH_DATE)
+/* add indexes on additional DimPatient fields */
+CREATE  INDEX PD_IDX_DATES ON DimPatient(PATIENT_NUM, VITAL_STATUS_CD, BIRTH_DATE, DEATH_DATE)
 ;
-CREATE  INDEX PD_IDX_AllPatientDim ON PATIENT_DIMENSION(PATIENT_NUM, VITAL_STATUS_CD, BIRTH_DATE, DEATH_DATE, SEX_CD, AGE_IN_YEARS_NUM, LANGUAGE_CD, RACE_CD, MARITAL_STATUS_CD, INCOME_CD, RELIGION_CD, ZIP_CD)
+CREATE  INDEX PD_IDX_AllPatientDim ON DimPatient(PATIENT_NUM, VITAL_STATUS_CD, BIRTH_DATE, DEATH_DATE, SEX_CD, AGE_IN_YEARS_NUM, LANGUAGE_CD, RACE_CD, MARITAL_STATUS_CD, INCOME_CD, RELIGION_CD, ZIP_CD)
 ;
-CREATE  INDEX PD_IDX_StateCityZip ON PATIENT_DIMENSION (STATECITYZIP_PATH, PATIENT_NUM)
+CREATE  INDEX PD_IDX_StateCityZip ON DimPatient (STATECITYZIP_PATH, PATIENT_NUM)
 ;
-CREATE INDEX PA_IDX_UPLOADID ON PATIENT_DIMENSION(UPLOAD_ID)
+CREATE INDEX PA_IDX_UPLOADID ON DimPatient(UPLOAD_ID)
 ;
 
 
@@ -308,3 +299,32 @@ CREATE TABLE MODIFIER_DIMENSION (
 ;
 CREATE INDEX MD_IDX_UPLOADID ON MODIFIER_DIMENSION(UPLOAD_ID)
 ;
+------------------------------------------------------------
+-- create Calendar Dimension table with PK on DateKey 
+------------------------------------------------------------
+
+CREATE TABLE [dbo].[DimDate](
+	[DateKey] [int] NOT NULL,
+	[Date] [date] NOT NULL,
+	[DateDE] [nvarchar](10) NOT NULL,
+	[WeekdayNumber] [tinyint] NOT NULL,
+	[WeekDayName] [nvarchar](10) NOT NULL,
+	[DayOfMonthNumber] [tinyint] NOT NULL,
+	[MonthNumber] [tinyint] NOT NULL,
+	[Quarter] [tinyint] NOT NULL,
+	[QuarterName] [nvarchar](20) NOT NULL,
+	[Year] [smallint] NOT NULL,
+	[Semester] [tinyint] NOT NULL,
+	[QuarterWithYear] [nvarchar](30) NOT NULL,
+	[WeekOfYear] [tinyint] NOT NULL,
+	[WeekOfYearNameDE] [nvarchar](20) NOT NULL,
+	[MonthOfYearFullName] [nvarchar](20) NOT NULL,
+	[WeekOfYearFullname] [nvarchar](20) NOT NULL,
+	[MonthName] [nvarchar](30) NOT NULL,
+	[SemesterWithYear] [nvarchar](20) NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[DateKey] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
